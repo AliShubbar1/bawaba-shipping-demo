@@ -338,6 +338,10 @@ input[type="checkbox"],input[type="radio"]{width:auto;height:auto;padding:0;acce
 .sugg button{display:block;width:100%;padding:8px 10px;border:0;background:transparent;text-align:start;cursor:pointer;color:var(--ink)}
 .sugg button:hover{background:var(--surface-2)}
 .sugg .add{color:var(--brand-ink);font-weight:700;border-top:1px solid var(--line)}
+.feebox{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-2)}
+.feegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px 12px;margin-block:6px 4px}
+.feegrid .fee-note{grid-column:span 2}
+@media (max-width:600px){.feegrid{grid-template-columns:repeat(2,minmax(0,1fr))}.feegrid .fee-note{grid-column:1/-1}}
 .ntbox{border:1px dashed var(--brand);border-radius:10px;padding:12px;background:var(--brand-soft)}
 .lrow{display:grid;grid-template-columns:minmax(120px,1.4fr) 84px 132px minmax(170px,1.3fr) minmax(110px,auto) 32px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
 .l-dims{display:flex;gap:4px;align-items:center}
@@ -372,6 +376,7 @@ try { if (localStorage.getItem(MODE_KEY) === 'night') MODE = 'night'; } catch (e
 root.dataset.mode = MODE;
 function setMode(m) { MODE = m; root.dataset.mode = m; try { localStorage.setItem(MODE_KEY, m); } catch (e) {} }
 const KEY = 'bawaba-shipping-demo-v1';
+const SEED_VER = 2; // raised whenever the sample data changes
 
 /* ---------- helpers ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -455,7 +460,7 @@ function load() {
 function seed() {
   const d = n => addDays(TODAY, n);
   S = {
-    v: 1, anchor: TODAY, dirty: false,
+    v: 1, anchor: TODAY, dirty: false, seedVer: SEED_VER,
     seq: { order: 1010, container: 32, voucher: 2041, transfer: 101 },
     settings: { rates: { official: 1520, market: 1665, cny: 7.1 }, metre: 55, alertDays: 3, excel: false },
     ui: { role: 'manager', location: 'ميسان', online: true },
@@ -495,7 +500,7 @@ function seed() {
       { id: 'o1', no: 1001, traderId: 't1', supplierId: 's1', date: d(-45), route: 'warehouse', goods: 20000, metre: 55, includes: [], completed: 15000,
         lines: [{ id: 'o1a', desc: 'كراسي مكتب دوّارة', cartons: 120, mode: 'dims', L: 65, W: 60, H: 55, cbm: 0.2145, received: 120 },
                 { id: 'o1b', desc: 'طاولات مكتب', cartons: 40, mode: 'dims', L: 120, W: 60, H: 15, cbm: 0.108, received: 40 }] },
-      { id: 'o2', no: 1002, traderId: 't2', supplierId: 's2', date: d(-40), route: 'warehouse', goods: 8500, metre: 50, includes: ['transport'], completed: 0,
+      { id: 'o2', no: 1002, traderId: 't2', supplierId: 's2', date: d(-40), route: 'warehouse', goods: 8500, metre: 50, pricing: 'incl', includes: ['transport'], completed: 0,
         lines: [{ id: 'o2a', desc: 'أدوات مطبخ منزلية', cartons: 300, mode: 'per', cbm: 0.06, received: 300 }] },
       { id: 'o3', no: 1003, traderId: 't3', supplierId: 's3', date: d(-38), route: 'direct', goods: 15000, metre: 60, includes: [], completed: 5000,
         lines: [{ id: 'o3a', desc: 'شواحن وسماعات', cartons: 100, mode: 'dims', L: 50, W: 40, H: 30, cbm: 0.06, received: 100 }] },
@@ -503,13 +508,14 @@ function seed() {
         lines: [{ id: 'o4a', desc: 'بلاط سيراميك 60×60', cartons: 200, mode: 'total', total: 10, cbm: 0.05, received: 200 }] },
       { id: 'o5', no: 1005, traderId: 't5', supplierId: 's5', date: d(-58), route: 'warehouse', goods: 6000, metre: 55, includes: [], completed: 3000,
         lines: [{ id: 'o5a', desc: 'ملابس رجالية', cartons: 150, mode: 'dims', L: 60, W: 40, H: 40, cbm: 0.096, received: 150 }] },
-      { id: 'o6', no: 1006, traderId: 't2', supplierId: 's2', date: d(-75), route: 'warehouse', goods: 5000, metre: 50, includes: ['transport'], completed: 0,
+      { id: 'o6', no: 1006, traderId: 't2', supplierId: 's2', date: d(-75), route: 'warehouse', goods: 5000, metre: 50, pricing: 'incl', includes: ['transport'], completed: 0,
         lines: [{ id: 'o6a', desc: 'مفروشات منزلية', cartons: 80, mode: 'per', cbm: 0.1, received: 80 }] },
       { id: 'o7', no: 1007, traderId: 't3', supplierId: 's3', date: d(-74), route: 'direct', goods: 9000, metre: 55, includes: [], completed: 0,
         lines: [{ id: 'o7a', desc: 'إكسسوارات هواتف', cartons: 120, mode: 'per', cbm: 0.1, received: 120 }] },
       { id: 'o8', no: 1008, traderId: 't1', supplierId: 's1', date: d(-100), route: 'warehouse', goods: 4000, metre: 55, includes: [], completed: 0,
         lines: [{ id: 'o8a', desc: 'رفوف معدنية', cartons: 50, mode: 'per', cbm: 0.08, received: 50 }] },
-      { id: 'o9', no: 1009, traderId: 't1', supplierId: 's2', date: d(-6), route: 'warehouse', goods: 7000, metre: 55, includes: [], completed: 0,
+      { id: 'o9', no: 1009, traderId: 't1', supplierId: 's2', date: d(-6), route: 'warehouse', goods: 7000, metre: 55, pricing: 'sep', includes: [],
+        fees: { customs: 420, taxdep: 175, coc: 95 }, other: 60, otherNote: 'فحص مختبري للإنارة', completed: 0,
         lines: [{ id: 'o9a', desc: 'إنارة LED', cartons: 70, mode: 'dims', L: 50, W: 50, H: 40, cbm: 0.1, received: 0 }] },
     ],
     containers: [
@@ -618,6 +624,20 @@ function seed() {
 
 /* ---------- model ---------- */
 const orderCartons = o => sum(o.lines, l => l.cartons);
+/* What the metre price of an order covers. 'incl': sea freight and the fee types in o.includes.
+   'sep': sea freight only; o.fees holds the amount written on the order for each fee type, charged
+   to the trader as written (0 = waived), and o.other one more fee with its description (o.otherNote).
+   On a 'sep' order a fee type left blank is charged by the trader's share of the actual expense. */
+const pricingOf = o => o.pricing || ((o.includes || []).length ? 'incl' : 'sep');
+const feesOf = o => pricingOf(o) === 'sep' ? Object.fromEntries(Object.entries(o.fees || {}).filter(([, a]) => typeof a === 'number' && a >= 0)) : {};
+const otherOf = o => pricingOf(o) === 'sep' && +o.other > 0 ? r2(+o.other) : 0;
+const orderFees = o => r2(sum(Object.values(feesOf(o)), a => +a) + otherOf(o));
+const orderCbm = o => Math.round(sum(o.lines, l => l.cbm * l.cartons) * 1000) / 1000;
+function coverOf(o, typeId) {
+  if (!o) return '';
+  if (pricingOf(o) === 'incl') return (o.includes || []).includes(typeId) ? 'metre' : '';
+  return typeId in feesOf(o) ? 'order' : '';
+}
 function lineStats(l) {
   return cached('l:' + l.id, () => ({ ordered: l.cartons, received: l.received,
     loaded: sum(S.loads.filter(x => x.lineId === l.id), x => x.cartons),
@@ -630,7 +650,7 @@ function filesOf(cid) {
     S.loads.filter(x => x.containerId === cid).forEach(ld => {
       const o = O(ld.orderId); if (!o) return; const l = o.lines.find(z => z.id === ld.lineId); if (!l) return;
       let f = m.get(o.id);
-      if (!f) { f = { orderId: o.id, traderId: o.traderId, no: o.no, cartons: 0, cbm: 0, value: 0, metre: o.metre, includes: o.includes || [] }; m.set(o.id, f); }
+      if (!f) { f = { orderId: o.id, traderId: o.traderId, no: o.no, cartons: 0, cbm: 0, value: 0, metre: o.metre, pricing: pricingOf(o), includes: pricingOf(o) === 'incl' ? (o.includes || []) : [], fees: feesOf(o) }; m.set(o.id, f); }
       f.cartons += ld.cartons; f.cbm += ld.cartons * l.cbm; f.value += o.goods * ld.cartons / orderCartons(o);
     });
     return [...m.values()].sort((a, b) => a.no - b.no).map(f => { const cbm = Math.round(f.cbm * 1000) / 1000; return { ...f, cbm, value: r2(f.value), freight: r2(cbm * f.metre) }; });
@@ -654,18 +674,22 @@ function computeShares(e) {
   if (!files.length) return { kind: 'error', basis, rows: [], msg: 'لا توجد طرود محمّلة في هذه الحاوية بعد' };
   if (basis === 'direct') {
     const f = files.find(x => x.orderId === e.directOrderId);
-    return f ? { kind: 'split', basis, rows: [{ orderId: f.orderId, traderId: f.traderId, no: f.no, amount: e.usd, onCompany: f.includes.includes(t.id) }] } : { kind: 'error', basis, rows: [], msg: 'اختر الملف الذي يُحمَّل عليه المصروف' };
+    return f ? { kind: 'split', basis, rows: [{ orderId: f.orderId, traderId: f.traderId, no: f.no, amount: e.usd, cover: coverOf(O(f.orderId), t.id), onCompany: !!coverOf(O(f.orderId), t.id) }] } : { kind: 'error', basis, rows: [], msg: 'اختر الملف الذي يُحمَّل عليه المصروف' };
   }
   const cents = split(Math.round(e.usd * 100), files.map(f => basis === 'value' ? f.value : f.cbm));
   if (!cents) return { kind: 'error', basis, rows: [], msg: 'لا يمكن التوزيع لأن مجموع الأساس صفر' };
-  return { kind: 'split', basis, rows: files.map((f, i) => ({ orderId: f.orderId, traderId: f.traderId, no: f.no, amount: cents[i] / 100, onCompany: f.includes.includes(t.id) })) };
+  return { kind: 'split', basis, rows: files.map((f, i) => ({ orderId: f.orderId, traderId: f.traderId, no: f.no, amount: cents[i] / 100, cover: coverOf(O(f.orderId), t.id), onCompany: !!coverOf(O(f.orderId), t.id) })) };
 }
 const sharesOf = e => cached('s:' + e.id, () => computeShares(e));
 function traderSummary(tid) {
   return cached('t:' + tid, () => {
     const E = [];
     S.vouchers.filter(v => v.partyId === tid && v.kind === 'opening').forEach(v => E.push({ date: v.date, desc: `رصيد افتتاحي${v.note ? '، ' + v.note : ''}`, debit: v.usd > 0 ? v.usd : 0, credit: v.usd < 0 ? -v.usd : 0, cat: 'opening', key: null }));
-    S.orders.filter(o => o.traderId === tid).forEach(o => E.push({ date: o.date, desc: `قيمة البضاعة، طلب ${o.no}: ${o.lines.map(l => l.desc).join('، ')}`, debit: o.goods, credit: 0, cat: 'goods', key: 'order:' + o.id }));
+    S.orders.filter(o => o.traderId === tid).forEach(o => {
+      E.push({ date: o.date, desc: `قيمة البضاعة، طلب ${o.no}: ${o.lines.map(l => l.desc).join('، ')}`, debit: o.goods, credit: 0, cat: 'goods', key: 'order:' + o.id });
+      Object.entries(feesOf(o)).filter(([, a]) => a > 0).forEach(([ty, a]) => E.push({ date: o.date, desc: `${T(ty).name}، طلب ${o.no}، المبلغ المتفق عليه`, debit: r2(+a), credit: 0, cat: 'fees', key: 'order:' + o.id }));
+      if (otherOf(o)) E.push({ date: o.date, desc: `أجور أخرى، طلب ${o.no}${o.otherNote ? '، ' + o.otherNote : ''}`, debit: otherOf(o), credit: 0, cat: 'fees', key: 'order:' + o.id });
+    });
     S.containers.forEach(c => filesOf(c.id).filter(f => f.traderId === tid).forEach(f => {
       const first = S.loads.filter(x => x.containerId === c.id && x.orderId === f.orderId).map(x => x.date).sort()[0] || c.created;
       E.push({ date: first, desc: `أجور الشحن، ${c.fileNo}، طلب ${f.no}: ${n4(f.cbm)} م³ × ${n2(f.metre)} $`, debit: f.freight, credit: 0, cat: 'fees', key: 'container:' + c.id });
@@ -880,7 +904,7 @@ function ordersTable() {
   let list = S.orders.slice().sort((a, b) => b.no - a.no);
   if (q) list = list.filter(o => (o.no + ' ' + P(o.traderId).name + ' ' + o.lines.map(l => l.desc).join(' ')).includes(q));
   if (!list.length) return '<p class="empty">لا توجد طلبات تطابق البحث.</p>';
-  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>الطلب</th><th>التاجر</th><th>المواد</th><th>المسار</th><th class="r">قيمة البضاعة</th><th class="r">المتبقي على البضاعة</th><th>${q4h()}</th></tr></thead><tbody>${list.map(o => {
+  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>الطلب</th><th>التاجر</th><th>المواد</th><th>المسار</th><th class="r">قيمة البضاعة</th><th class="r">المتبقي على الطلب</th><th>${q4h()}</th></tr></thead><tbody>${list.map(o => {
     const rem = r2(traderSummary(o.traderId).targets['order:' + o.id] || 0);
     return `<tr class="click" data-act="order" data-id="${o.id}"><td class="mono">${o.no}${pend(o)}</td><td>${h(P(o.traderId).name)}</td><td>${h(o.lines.map(l => l.desc).join('، '))}</td><td>${o.route === 'warehouse' ? 'عبر مخزن الصين' : 'مباشرة إلى الميناء'}</td><td class="r">${usd(o.goods)}</td><td class="r">${rem > 0.004 ? usd(rem) : pill('مدفوعة', 'good')}</td><td>${q4(orderStats(o))}</td></tr>`;
   }).join('')}</tbody></table></div>`;
@@ -925,7 +949,13 @@ function vContainer(c) {
     const dl = sum(S.deliveries.filter(x => x.containerId === c.id && x.orderId === f.orderId), x => x.cartons);
     return `<tr><td><b>${h(P(f.traderId).name)}</b></td><td class="mono">${f.no}</td><td class="r num">${f.cartons}</td><td class="r num">${n4(f.cbm)}</td><td class="r">${usd(f.metre)}</td><td class="r">${usd(f.freight)}</td><td class="r">${usd(shares + (first ? fine : 0))}</td><td class="r">${due === null ? '<span class="muted">مع الصف السابق</span>' : Math.abs(due) < 0.01 ? pill('مسدد', 'good') : usd(due)}</td><td class="r"><span class="num">${dl} / ${f.cartons}</span></td></tr>`;
   }).join('');
-  const incNotes = files.filter(f => f.includes.length).map(f => { const cov = companyCovered(c.id, f.orderId); return `سعر متر ${h(P(f.traderId).name)} (طلب ${f.no}) يشمل ${f.includes.map(t => T(t).name).join('، ')}${cov > 0 ? `، فحصته منها (${n2(cov)} $) على الشركة ولا تُنقل إلى غيره` : ''}.`; });
+  const incNotes = files.filter(f => f.includes.length || Object.keys(f.fees).length).map(f => {
+    const cov = companyCovered(c.id, f.orderId), who = `${h(P(f.traderId).name)} (طلب ${f.no})`;
+    const tail = cov > 0 ? `، فحصته منها في هذه الحاوية (${n2(cov)} $) على الشركة ولا تُنقل إلى غيره` : '';
+    return f.pricing === 'incl'
+      ? `سعر متر ${who} يشمل ${f.includes.map(t => h(T(t).name)).join('، ')}${tail}.`
+      : `${who} يدفع مبالغ متفقاً عليها في طلبه عن: ${Object.keys(f.fees).map(t => h(T(t).name)).join('، ')}${tail}.`;
+  });
   const fl = finalLeg(c), end = freeEnd(c), left = end ? diffDays(TODAY, end) : null;
   const evs = S.events.filter(e => e.containerId === c.id).sort((a, b) => b.date.localeCompare(a.date));
   const opsTxt = `سُلّم ${st.Dq} من ${st.Lq} كرتوناً${c.stage !== 'released' ? `، والمرحلة الحالية: ${STAGES[c.stage]}` : ''}`;
@@ -1161,9 +1191,17 @@ MODALS.newOrder = () => dlg('طلب جديد', `
     <label class="fl">المورد<select id="no-supplier">${partyOpts(['supplier'], '', 'اختر المورد')}</select></label>
     <label class="fl">قيمة البضاعة ($)<input type="number" min="0" step="0.01" id="no-goods"></label>
     <div class="fl full">مسار البضاعة في الصين<div class="radios"><label class="radio"><input type="radio" name="no-route" value="warehouse" checked><span>عبر مخزن الشركة في الصين<small>تُسجَّل رسوم المخزن إن وُجدت</small></span></label><label class="radio"><input type="radio" name="no-route" value="direct"><span>مباشرة من المورد إلى الميناء</span></label></div></div>
-    <label class="fl">سعر المتر المتفق عليه ($)<input type="number" min="0" step="0.01" id="no-metre" value="${S.settings.metre}"></label>
+    <label class="fl">سعر المتر المتفق عليه ($)<input type="number" min="0" step="0.01" id="no-metre" value="${S.settings.metre}"><span class="hint" id="no-metre-h">حدّد نوع سعر المتر أدناه.</span></label>
     <label class="fl">أكملت الشركة من قيمة البضاعة ($)<input type="number" min="0" step="0.01" id="no-completed" value="0"><span class="hint">إذا كان مع التاجر جزء من المبلغ فقط</span></label>
-    <div class="fl full">سعر المتر يشمل أيضاً<div class="chips">${S.types.filter(t => t.nature === 'cost').map(t => `<label class="check"><input type="checkbox" name="no-inc" value="${t.id}">${h(t.name)}</label>`).join('')}</div><span class="hint">اترك الكل فارغاً إذا كان السعر للشحن البحري فقط.</span></div>
+    <div class="fl full">نوع سعر المتر<div class="radios">
+      <label class="radio"><input type="radio" name="no-ptype" value="incl"><span>سعر شامل<small>سعر المتر يشمل الشحن البحري والأجور التي تختارها.</small></span></label>
+      <label class="radio"><input type="radio" name="no-ptype" value="sep"><span>الشحن البحري فقط، والأجور منفصلة<small>تكتب مبلغ كل أجر في حقله، ويُجمع الكل مع أجور الشحن في السعر الإجمالي.</small></span></label></div></div>
+    <div class="fl full" id="no-inc-w" hidden>يشمل سعر المتر<div class="chips">${S.types.filter(t => t.nature === 'cost').map(t => `<label class="check"><input type="checkbox" name="no-inc" value="${t.id}">${h(t.name)}</label>`).join('')}</div></div>
+    <div class="fl full feebox" id="no-fee-w" hidden>الأجور المنفصلة على هذا الطلب ($)
+      <div class="feegrid">${S.types.filter(t => t.nature === 'cost').map(t => `<label class="fl">${h(t.name)}<input type="number" min="0" step="0.01" class="no-fee" data-type="${t.id}" placeholder="حسب الفعلي"></label>`).join('')}
+        <label class="fl">أجور أخرى<input type="number" min="0" step="0.01" id="no-other" placeholder="—"></label>
+        <label class="fl fee-note">بيان الأجور الأخرى<input id="no-other-note" placeholder="مثلاً: فحص مختبري"></label></div>
+      <span class="hint">الحقل الفارغ يُحسب فيه على التاجر نصيبه من المصروف الفعلي عند التخليص. واكتب 0 إذا لم يُستوفَ منه شيء على هذا الطلب.</span></div>
   </div>
   <div><div class="sec-head"><h3 class="h2" style="margin:0">الأصناف والكراتين</h3><button class="btn sm" data-act="addLine">إضافة صنف</button></div><div id="no-lines">${lineRow()}</div><div class="sumline" id="no-tot" style="margin-top:8px"></div></div>`, saveBtns('حفظ الطلب'), true);
 function lineRow() {
@@ -1189,8 +1227,12 @@ LIVE.newOrder = () => {
     const t = l.cbm * l.cartons; tot += t; cartons += l.cartons;
     l.r.querySelector('.l-out').textContent = l.cbm > 0 && l.cartons > 0 ? `${n4(l.cbm)} × ${l.cartons} = ${n4(t)} م³` : '—';
   });
-  const metre = num('no-metre');
-  $('no-tot').innerHTML = `<span>الكراتين <b>${cartons}</b></span><span>الحجم <b>${n4(Math.round(tot * 1000) / 1000)} م³</b></span><span>أجور الشحن المتوقعة <b>${n2(Math.round(tot * 1000) / 1000 * metre)} $</b></span>`;
+  const metre = num('no-metre'), pt = document.querySelector('input[name="no-ptype"]:checked')?.value || '';
+  $('no-inc-w').hidden = pt !== 'incl'; $('no-fee-w').hidden = pt !== 'sep';
+  $('no-metre-h').textContent = pt === 'incl' ? 'يشمل الشحن البحري والأجور التي تختارها أدناه.' : pt === 'sep' ? 'للشحن البحري فقط، والأجور الأخرى تُكتب أدناه.' : 'حدّد نوع سعر المتر أدناه.';
+  const vol = Math.round(tot * 1000) / 1000, freight = r2(vol * metre);
+  const fees = pt === 'sep' ? r2(sum([...document.querySelectorAll('.no-fee')], x => Math.max(0, +x.value || 0)) + Math.max(0, num('no-other'))) : 0;
+  $('no-tot').innerHTML = `<span>الكراتين <b>${cartons}</b></span><span>الحجم <b>${n4(vol)} م³</b></span><span>أجور الشحن المتوقعة${pt === 'incl' ? ' (شاملة)' : ''} <b>${n2(freight)} $</b></span>${pt === 'sep' ? `<span>الأجور المنفصلة <b>${n2(fees)} $</b></span><span>السعر الإجمالي <b>${n2(freight + fees)} $</b></span>` : ''}`;
 };
 function traderSuggest() {
   const q = val('no-trader'), box = $('no-sugg'); if (!box) return;
@@ -1208,10 +1250,24 @@ SAVE.newOrder = () => {
   if (!lines.length) return err('أضف صنفاً واحداً على الأقل');
   for (const l of lines) { if (!l.desc) return err('اكتب وصف كل صنف'); if (!(l.cartons > 0)) return err(`عدد الكراتين مطلوب للصنف «${l.desc}»`); if (!(l.cbm > 0)) return err(`حجم الصنف «${l.desc}» مطلوب`); }
   const goods = num('no-goods'); if (!(goods > 0)) return err('اكتب قيمة البضاعة');
+  const pt = document.querySelector('input[name="no-ptype"]:checked')?.value;
+  if (!(num('no-metre') > 0)) return err('اكتب سعر المتر المتفق عليه');
+  if (!pt) return err('اختر نوع سعر المتر: سعر شامل، أو الشحن البحري فقط والأجور منفصلة');
+  const includes = pt === 'incl' ? [...document.querySelectorAll('input[name="no-inc"]:checked')].map(x => x.value) : [];
+  if (pt === 'incl' && !includes.length) return err('اختر الأجور التي يشملها سعر المتر، أو اختر «الشحن البحري فقط، والأجور منفصلة»');
+  const fees = {};
+  if (pt === 'sep') for (const x of document.querySelectorAll('.no-fee')) {
+    if (x.value.trim() === '') continue;
+    const a = +x.value; if (!isFinite(a) || a < 0) return err('مبالغ الأجور لا تكون سالبة');
+    fees[x.dataset.type] = r2(a);
+  }
+  const other = pt === 'sep' && num('no-other') > 0 ? r2(num('no-other')) : 0, otherNote = pt === 'sep' ? val('no-other-note') : '';
+  if (other > 0 && !otherNote) return err('اكتب بيان الأجور الأخرى');
+  if (otherNote && !(other > 0)) return err('اكتب مبلغ الأجور الأخرى، أو امسح بيانها');
   if (isNew) { const p = { id: uid('t'), type: 'trader', name: val('nt-name2'), city: val('nt-city2'), phone: val('nt-phone2') }; S.parties.push(p); tid = p.id; }
   const id = uid('o');
   const o = stamp({ id, no: S.seq.order++, traderId: tid, supplierId: val('no-supplier'), date: TODAY, route: document.querySelector('input[name="no-route"]:checked').value,
-    goods, metre: num('no-metre'), includes: [...document.querySelectorAll('input[name="no-inc"]:checked')].map(x => x.value), completed: num('no-completed'),
+    goods, metre: num('no-metre'), pricing: pt, includes, fees, other, otherNote, completed: num('no-completed'),
     lines: lines.map((l, i) => ({ id: id + 'l' + i, desc: l.desc, cartons: l.cartons, mode: l.mode, L: l.L, W: l.W, H: l.H, total: l.mode === 'total' ? l.v : undefined, cbm: l.cbm, received: 0 })) });
   S.orders.push(o);
   return `حُفظ الطلب ${o.no}`;
@@ -1219,11 +1275,12 @@ SAVE.newOrder = () => {
 
 /* order detail */
 MODALS.order = m => {
-  const o = O(m.id), ts = traderSummary(o.traderId), rem = r2(ts.targets['order:' + o.id] || 0), paid = r2(o.goods - rem);
+  const o = O(m.id), ts = traderSummary(o.traderId), rem = r2(ts.targets['order:' + o.id] || 0), fees = orderFees(o), paid = r2(o.goods + fees - rem);
   const where = S.loads.filter(x => x.orderId === o.id).reduce((acc, x) => { acc[x.containerId] = (acc[x.containerId] || 0) + x.cartons; return acc; }, {});
   const body = `<dl class="kv"><dt>التاجر</dt><dd><b>${h(P(o.traderId).name)}</b></dd><dt>المورد</dt><dd>${h(P(o.supplierId).name)}</dd><dt>المسار</dt><dd>${o.route === 'warehouse' ? 'عبر مخزن الشركة في الصين' : 'مباشرة من المورد إلى الميناء'}</dd><dt>تاريخ الطلب</dt><dd class="num">${fmtDate(o.date)}</dd>
-    <dt>سعر المتر</dt><dd>${usd(o.metre)} · ${o.includes.length ? 'يشمل ' + o.includes.map(t => h(T(t).name)).join('، ') : 'للشحن البحري فقط'}</dd></dl>
-    <div class="stmt-sum"><div><div class="k-label">قيمة البضاعة</div><b>${usd(o.goods)}</b></div><div><div class="k-label">دفع التاجر</div><b>${usd(paid)}</b></div>${o.completed ? `<div><div class="k-label">أكملت الشركة عبر الوكيل</div><b>${usd(o.completed)}</b></div>` : ''}<div><div class="k-label">يبقى على التاجر</div><b>${usd(rem)}</b></div></div>
+    <dt>سعر المتر</dt><dd>${usd(o.metre)} · ${pricingOf(o) === 'incl' ? 'سعر شامل يشمل ' + (o.includes || []).map(t => h(T(t).name)).join('، ') : 'للشحن البحري فقط، والأجور منفصلة'}</dd></dl>
+    ${priceTable(o)}
+    <div class="stmt-sum"><div><div class="k-label">قيمة البضاعة</div><b>${usd(o.goods)}</b></div>${fees ? `<div><div class="k-label">الأجور المكتوبة في الطلب</div><b>${usd(fees)}</b></div>` : ''}<div><div class="k-label">دفع التاجر</div><b>${usd(paid)}</b></div>${o.completed ? `<div><div class="k-label">أكملت الشركة عبر الوكيل</div><b>${usd(o.completed)}</b></div>` : ''}<div><div class="k-label">يبقى على التاجر</div><b>${usd(rem)}</b></div></div>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>الصنف</th><th class="r">م³ للكرتونة</th><th>${q4h()}</th><th class="r">${o.route === 'warehouse' ? 'في مخزن الصين' : 'لم يُحمّل'}</th><th></th></tr></thead><tbody>${o.lines.map(l => {
       const s = lineStats(l);
       return `<tr><td>${h(l.desc)}${l.mode === 'dims' ? `<div class="hint num">${l.L}×${l.W}×${l.H} سم</div>` : ''}</td><td class="r num">${n4(l.cbm)}</td><td>${q4(s)}</td><td class="r num">${s.received - s.loaded}</td><td>${l.received < l.cartons ? `<div class="inline" style="margin:0"><input type="number" min="1" max="${l.cartons - l.received}" id="rc-${l.id}" placeholder="مستلم الآن" style="width:110px" aria-label="الكمية المستلمة الآن"><button class="btn sm" data-act="receive" data-id="${o.id}" data-line="${l.id}">تسجيل الاستلام</button></div>` : pill('استُلم كاملاً', 'good')}</td></tr>`;
@@ -1231,6 +1288,16 @@ MODALS.order = m => {
     ${Object.keys(where).length ? `<div><span class="k-label">حُمّل في: </span>${Object.entries(where).map(([cid, n]) => `<button class="tg cont" data-act="openC" data-id="${cid}">${C(cid)?.fileNo} <b>${n} كرتون</b></button>`).join(' ')}</div>` : '<p class="hint">لم يُحمّل أي جزء من هذا الطلب في حاوية بعد.</p>'}`;
   return dlg(`طلب ${o.no}${pend(o)}`, body, `${rem > 0.004 ? `<button class="btn primary" data-act="modal" data-type="receipt" data-t="${o.traderId}" data-order="${o.id}">سند قبض لهذا الطلب</button>` : ''}<button class="btn" data-act="close">إغلاق</button>`, true);
 };
+
+function priceTable(o) {
+  const sep = pricingOf(o) === 'sep', vol = orderCbm(o), freight = r2(vol * o.metre), fees = orderFees(o);
+  const rows = sep ? [...Object.entries(feesOf(o)).map(([t, a]) => [h(T(t).name), +a]), ...(otherOf(o) ? [[`أجور أخرى${o.otherNote ? ': ' + h(o.otherNote) : ''}`, otherOf(o)]] : [])] : [];
+  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>البند</th><th class="r">المبلغ</th></tr></thead><tbody>
+    <tr><td>أجور الشحن${sep ? ' البحري' : '، شاملة'}: <span class="num">${n4(vol)}</span> م³ × <span class="num">${n2(o.metre)}</span> $</td><td class="r">${usd(freight)}</td></tr>
+    ${rows.map(([n, a]) => `<tr><td>${n}</td><td class="r">${usd(a)}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>السعر الإجمالي</td><td class="r">${usd(r2(freight + fees))}</td></tr></tfoot></table></div>
+    <p class="hint">أجور الشحن تُحسب على الحجم المحمّل فعلاً.${sep ? ' والأجر الذي لم يُكتب له مبلغ في الطلب يُحسب على التاجر نصيبه من المصروف الفعلي عند التخليص، والأجر المكتوب صفراً لا يُستوفى.' : ''}</p>`;
+}
 
 /* new container */
 MODALS.newContainer = () => dlg('حاوية جديدة', `<div class="fgrid">
@@ -1361,7 +1428,7 @@ LIVE.expense = () => {
   if (sh.kind === 'deposit') { prev.innerHTML = '<div class="infobox">تأمين الحاوية لا يُوزع على التجار، ويُتابع حتى يُسترد بعد إعادة الحاوية.</div>'; return; }
   if (sh.kind === 'fine') { prev.innerHTML = e.responsibleId ? `<div class="infobox">تُحمَّل الغرامة كاملة (${n2(e.usd)} $) على ${h(P(e.responsibleId).name)}، ولا تُوزع على بقية التجار.</div>` : '<p class="hint">اختر الجهة المتسببة بالتأخير.</p>'; return; }
   if (sh.kind === 'error') { prev.innerHTML = `<p class="hint err">${h(sh.msg)}</p>`; return; }
-  prev.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>التاجر</th><th>الطلب</th><th class="r">الحصة</th><th>على من</th></tr></thead><tbody>${sh.rows.map(r => `<tr><td>${h(P(r.traderId).name)}</td><td class="mono">${r.no}</td><td class="r">${usd(r.amount)}</td><td>${r.onCompany ? '<span class="hint ok">على الشركة، لأن سعر متره يشمل هذا المصروف</span>' : 'على التاجر'}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2">المجموع</td><td class="r">${usd(sum(sh.rows, r => r.amount))}</td><td></td></tr></tfoot></table></div><p class="hint">مجموع الحصص يساوي المصروف تماماً، وفروق التقريب تذهب للحصص ذات الكسور الأكبر.</p>`;
+  prev.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>التاجر</th><th>الطلب</th><th class="r">الحصة</th><th>على من</th></tr></thead><tbody>${sh.rows.map(r => `<tr><td>${h(P(r.traderId).name)}</td><td class="mono">${r.no}</td><td class="r">${usd(r.amount)}</td><td>${r.cover === 'metre' ? '<span class="hint ok">على الشركة، لأن سعر متره يشمل هذا المصروف</span>' : r.cover === 'order' ? '<span class="hint ok">على الشركة، لأن التاجر يدفع لهذا الأجر مبلغاً متفقاً عليه في طلبه</span>' : 'على التاجر'}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2">المجموع</td><td class="r">${usd(sum(sh.rows, r => r.amount))}</td><td></td></tr></tfoot></table></div><p class="hint">مجموع الحصص يساوي المصروف تماماً، وفروق التقريب تذهب للحصص ذات الكسور الأكبر.</p>`;
 };
 SAVE.expense = () => {
   const e = expDraft(), c = C(e.containerId), t = T(e.typeId);
@@ -1388,7 +1455,7 @@ function allocBox() {
   const tid = val('rc-t'), box = $('rc-alloc'); if (!box) return;
   if (!tid) { box.innerHTML = '<p class="hint">اختر التاجر لتظهر مبالغه المفتوحة.</p>'; return; }
   const s = traderSummary(tid), rows = [];
-  S.orders.filter(o => o.traderId === tid).sort((a, b) => a.date.localeCompare(b.date)).forEach(o => { const v = s.targets['order:' + o.id] || 0; if (v > 0.004) rows.push({ k: 'order', id: o.id, label: `بضاعة طلب ${o.no}`, date: o.date, v }); });
+  S.orders.filter(o => o.traderId === tid).sort((a, b) => a.date.localeCompare(b.date)).forEach(o => { const v = s.targets['order:' + o.id] || 0; if (v > 0.004) rows.push({ k: 'order', id: o.id, label: orderFees(o) ? `بضاعة طلب ${o.no} وأجوره المكتوبة` : `بضاعة طلب ${o.no}`, date: o.date, v }); });
   S.containers.forEach(c => { const v = s.targets['container:' + c.id] || 0; if (v > 0.004) rows.push({ k: 'container', id: c.id, label: `أجور ومصاريف الحاوية ${c.fileNo}`, date: c.created, v }); });
   rows.sort((a, b) => a.date.localeCompare(b.date));
   const pre = U.modal.order;
@@ -1568,9 +1635,10 @@ document.addEventListener('keydown', e => {
 
 /* ---------- start ---------- */
 /* The sample data follows today's date: a browser that holds only the untouched sample from an
-   earlier day gets it again for today. Anything the viewer changed is kept as it is. */
+   earlier day, or from an older version of this page, gets it again. Anything the viewer changed is
+   kept as it is. */
 const stored = load();
-if (stored && stored.anchor && !stored.dirty && stored.anchor !== TODAY) { seed(); save(false); }
+if (stored && stored.anchor && !stored.dirty && (stored.anchor !== TODAY || stored.seedVer !== SEED_VER)) { seed(); save(false); }
 else if (stored) S = stored;
 else { seed(); save(false); }
 render();
