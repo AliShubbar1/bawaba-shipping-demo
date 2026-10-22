@@ -343,7 +343,7 @@ input[type="checkbox"],input[type="radio"]{width:auto;height:auto;padding:0;acce
 .feegrid .fee-note{grid-column:span 2}
 @media (max-width:600px){.feegrid{grid-template-columns:repeat(2,minmax(0,1fr))}.feegrid .fee-note{grid-column:1/-1}}
 .ntbox{border:1px dashed var(--brand);border-radius:10px;padding:12px;background:var(--brand-soft)}
-.lrow{display:grid;grid-template-columns:minmax(120px,1.4fr) 84px 132px minmax(170px,1.3fr) minmax(110px,auto) 32px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.lrow{display:grid;grid-template-columns:minmax(120px,1.4fr) 84px 158px minmax(170px,1.3fr) minmax(110px,auto) 32px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
 .l-dims{display:flex;gap:4px;align-items:center}
 .l-dims input{padding-inline:6px}
 .l-out{font-size:12px;color:var(--ink-2);font-family:var(--font-num);font-variant-numeric:tabular-nums;direction:ltr;text-align:end}
@@ -1197,16 +1197,16 @@ MODALS.newOrder = () => dlg('طلب جديد', `
       <label class="radio"><input type="radio" name="no-ptype" value="incl"><span>سعر شامل<small>سعر المتر يشمل الشحن البحري والأجور التي تختارها.</small></span></label>
       <label class="radio"><input type="radio" name="no-ptype" value="sep"><span>الشحن البحري فقط، والأجور منفصلة<small>تكتب مبلغ كل أجر في حقله، ويُجمع الكل مع أجور الشحن في السعر الإجمالي.</small></span></label></div></div>
     <div class="fl full" id="no-inc-w" hidden>يشمل سعر المتر<div class="chips">${S.types.filter(t => t.nature === 'cost').map(t => `<label class="check"><input type="checkbox" name="no-inc" value="${t.id}">${h(t.name)}</label>`).join('')}</div></div>
-    <div class="fl full feebox" id="no-fee-w" hidden>الأجور المنفصلة على هذا الطلب ($)
+    <div class="fl full feebox" id="no-fee-w" hidden>الأجور المنفصلة على هذا الطلب كله ($)
       <div class="feegrid">${S.types.filter(t => t.nature === 'cost').map(t => `<label class="fl">${h(t.name)}<input type="number" min="0" step="0.01" class="no-fee" data-type="${t.id}" placeholder="حسب الفعلي"></label>`).join('')}
         <label class="fl">أجور أخرى<input type="number" min="0" step="0.01" id="no-other" placeholder="—"></label>
         <label class="fl fee-note">بيان الأجور الأخرى<input id="no-other-note" placeholder="مثلاً: فحص مختبري"></label></div>
-      <span class="hint">الحقل الفارغ يُحسب فيه على التاجر نصيبه من المصروف الفعلي عند التخليص. واكتب 0 إذا لم يُستوفَ منه شيء على هذا الطلب.</span></div>
+      <span class="hint">المبالغ للطلب كله ولا تُضرب بالأمتار، فيُكتب الكمرك والضريبة كما تحسبهما الكمارك على نوع المادة وقيمتها. والحقل الفارغ يُحسب فيه على التاجر نصيبه من المصروف الفعلي عند التخليص، واكتب 0 إذا لم يُستوفَ منه شيء.</span></div>
   </div>
-  <div><div class="sec-head"><h3 class="h2" style="margin:0">الأصناف والكراتين</h3><button class="btn sm" data-act="addLine">إضافة صنف</button></div><div id="no-lines">${lineRow()}</div><div class="sumline" id="no-tot" style="margin-top:8px"></div></div>`, saveBtns('حفظ الطلب'), true);
+  <div><div class="sec-head"><h3 class="h2" style="margin:0">الأصناف والكراتين</h3><button class="btn sm" data-act="addLine">إضافة صنف</button></div><p class="hint" style="margin:2px 0 8px">لكل صنف سطر: نوع المادة، وعدد كراتينه، وحجم الكرتونة الواحدة بأبعادها بالسنتيمتر أو بالمتر المكعب، أو حجم كراتين الصنف كلها بالمتر المكعب. والبرنامج يضرب حجم الكرتونة بعددها.</p><div id="no-lines">${lineRow()}</div><div class="sumline" id="no-tot" style="margin-top:8px"></div></div>`, saveBtns('حفظ الطلب'), true);
 function lineRow() {
-  return `<div class="lrow" data-row><input class="l-desc" placeholder="وصف الصنف" aria-label="وصف الصنف"><input class="l-cartons" type="number" min="1" placeholder="الكراتين" aria-label="عدد الكراتين">
-    <select class="l-mode" aria-label="طريقة إدخال الحجم"><option value="dims">بالأبعاد (سم)</option><option value="per">م³ للكرتونة</option><option value="total">م³ للمجموعة</option></select>
+  return `<div class="lrow" data-row><input class="l-desc" placeholder="الصنف (نوع المادة)، مثلاً: إنارة LED" aria-label="الصنف (نوع المادة)"><input class="l-cartons" type="number" min="1" placeholder="عدد الكراتين" aria-label="عدد الكراتين">
+    <select class="l-mode" aria-label="طريقة إدخال الحجم"><option value="dims">أبعاد الكرتونة (سم)</option><option value="per">م³ للكرتونة</option><option value="total">م³ للمجموعة</option></select>
     <span class="l-dims"><input class="l-L" type="number" min="0" placeholder="طول" aria-label="الطول سم"><span>×</span><input class="l-W" type="number" min="0" placeholder="عرض" aria-label="العرض سم"><span>×</span><input class="l-H" type="number" min="0" placeholder="ارتفاع" aria-label="الارتفاع سم"></span>
     <input class="l-cbm" type="number" min="0" step="0.001" placeholder="م³" aria-label="الحجم بالمتر المكعب" hidden>
     <output class="l-out">—</output><button type="button" class="x" data-act="rmLine" aria-label="حذف الصنف">×</button></div>`;
@@ -1232,7 +1232,7 @@ LIVE.newOrder = () => {
   $('no-metre-h').textContent = pt === 'incl' ? 'يشمل الشحن البحري والأجور التي تختارها أدناه.' : pt === 'sep' ? 'للشحن البحري فقط، والأجور الأخرى تُكتب أدناه.' : 'حدّد نوع سعر المتر أدناه.';
   const vol = Math.round(tot * 1000) / 1000, freight = r2(vol * metre);
   const fees = pt === 'sep' ? r2(sum([...document.querySelectorAll('.no-fee')], x => Math.max(0, +x.value || 0)) + Math.max(0, num('no-other'))) : 0;
-  $('no-tot').innerHTML = `<span>الكراتين <b>${cartons}</b></span><span>الحجم <b>${n4(vol)} م³</b></span><span>أجور الشحن المتوقعة${pt === 'incl' ? ' (شاملة)' : ''} <b>${n2(freight)} $</b></span>${pt === 'sep' ? `<span>الأجور المنفصلة <b>${n2(fees)} $</b></span><span>السعر الإجمالي <b>${n2(freight + fees)} $</b></span>` : ''}`;
+  $('no-tot').innerHTML = `<span>الكراتين <b>${cartons}</b></span><span>الحجم <b>${n4(vol)} م³</b></span><span>أجور الشحن${pt === 'incl' ? '، شاملة' : ''} (الحجم × سعر المتر) <b>${n2(freight)} $</b></span>${pt === 'sep' ? `<span>الأجور المنفصلة <b>${n2(fees)} $</b></span><span>السعر الإجمالي للطلب <b>${n2(freight + fees)} $</b></span>` : ''}`;
 };
 function traderSuggest() {
   const q = val('no-trader'), box = $('no-sugg'); if (!box) return;
@@ -1295,7 +1295,7 @@ function priceTable(o) {
   return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>البند</th><th class="r">المبلغ</th></tr></thead><tbody>
     <tr><td>أجور الشحن${sep ? ' البحري' : '، شاملة'}: <span class="num">${n4(vol)}</span> م³ × <span class="num">${n2(o.metre)}</span> $</td><td class="r">${usd(freight)}</td></tr>
     ${rows.map(([n, a]) => `<tr><td>${n}</td><td class="r">${usd(a)}</td></tr>`).join('')}</tbody>
-    <tfoot><tr><td>السعر الإجمالي</td><td class="r">${usd(r2(freight + fees))}</td></tr></tfoot></table></div>
+    <tfoot><tr><td>السعر الإجمالي للطلب</td><td class="r">${usd(r2(freight + fees))}</td></tr></tfoot></table></div>
     <p class="hint">أجور الشحن تُحسب على الحجم المحمّل فعلاً.${sep ? ' والأجر الذي لم يُكتب له مبلغ في الطلب يُحسب على التاجر نصيبه من المصروف الفعلي عند التخليص، والأجر المكتوب صفراً لا يُستوفى.' : ''}</p>`;
 }
 
