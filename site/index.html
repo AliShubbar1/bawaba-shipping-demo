@@ -1192,7 +1192,7 @@ MODALS.newOrder = () => dlg('طلب جديد', `
     <label class="fl">قيمة البضاعة ($)<input type="number" min="0" step="0.01" id="no-goods"></label>
     <div class="fl full">مسار البضاعة في الصين<div class="radios"><label class="radio"><input type="radio" name="no-route" value="warehouse" checked><span>عبر مخزن الشركة في الصين<small>تُسجَّل رسوم المخزن إن وُجدت</small></span></label><label class="radio"><input type="radio" name="no-route" value="direct"><span>مباشرة من المورد إلى الميناء</span></label></div></div>
     <label class="fl">سعر المتر المتفق عليه ($)<input type="number" min="0" step="0.01" id="no-metre" value="${S.settings.metre}"><span class="hint" id="no-metre-h">حدّد نوع سعر المتر أدناه.</span></label>
-    <label class="fl">أكملت الشركة من قيمة البضاعة ($)<input type="number" min="0" step="0.01" id="no-completed" value="0"><span class="hint">إذا كان مع التاجر جزء من المبلغ فقط</span></label>
+    <label class="fl">ما أكملته الشركة عن التاجر ($)<input type="number" min="0" step="0.01" id="no-completed" value="0"><span class="hint">ما دفعته الشركة للمورد عبر وكيلها في الصين لأن التاجر لم يكن معه المبلغ كاملاً، ويبقى ديناً على التاجر.</span></label>
     <div class="fl full">نوع سعر المتر<div class="radios">
       <label class="radio"><input type="radio" name="no-ptype" value="incl"><span>سعر شامل<small>سعر المتر يشمل الشحن البحري والأجور التي تختارها.</small></span></label>
       <label class="radio"><input type="radio" name="no-ptype" value="sep"><span>الشحن البحري فقط، والأجور منفصلة<small>تكتب مبلغ كل أجر في حقله، ويُجمع الكل مع أجور الشحن في السعر الإجمالي.</small></span></label></div></div>
