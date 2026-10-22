@@ -338,6 +338,7 @@ input[type="checkbox"],input[type="radio"]{width:auto;height:auto;padding:0;acce
 .sugg button{display:block;width:100%;padding:8px 10px;border:0;background:transparent;text-align:start;cursor:pointer;color:var(--ink)}
 .sugg button:hover{background:var(--surface-2)}
 .sugg .add{color:var(--brand-ink);font-weight:700;border-top:1px solid var(--line)}
+.infobox.warn{background:var(--warn-soft);color:var(--warn)}
 .fsec{display:flex;flex-direction:column;gap:12px;padding-top:14px;border-top:1px solid var(--line)}
 .fsec:first-child{padding-top:0;border-top:0}
 .fsec>h3.h2{margin:0}
@@ -646,7 +647,7 @@ const orderCbm = o => Math.round(sum(o.lines, l => l.cbm * l.cartons) * 1000) / 
    repays the company or covers fees. */
 const advancesOf = o => o.advances || (o.completed > 0 ? [{ id: o.id + 'ad0', date: o.date, amount: o.completed, note: '' }] : []);
 const companyPaid = o => r2(sum(advancesOf(o), a => +a.amount || 0));
-const orderReceipts = o => r2(sum(S.vouchers.filter(v => v.kind === 'receipt'), v => sum(v.alloc.filter(a => a.k === 'order' && a.id === o.id), a => a.amount)));
+const orderReceipts = o => r2(sum(S.vouchers.filter(v => v.kind === 'receipt' && !v.correctedBy), v => sum(v.alloc.filter(a => a.k === 'order' && a.id === o.id), a => a.amount)));
 function goodsPay(o) {
   const company = companyPaid(o), trader = r2(Math.max(0, Math.min(orderReceipts(o), o.goods - company)));
   return { trader, company, sum: r2(trader + company), left: r2(Math.max(0, o.goods - trader - company)) };
@@ -723,12 +724,19 @@ function traderSummary(tid) {
       v.alloc.forEach(a => { al += a.amount; E.push({ date: v.date, desc: `سند قبض ${v.no}${curTxt}، ${a.k === 'order' ? 'طلب ' + (O(a.id)?.no || '') : (C(a.id)?.fileNo || '')}`, debit: 0, credit: a.amount, cat: 'payment', key: a.k + ':' + a.id }); });
       const rest = r2(v.usd - al); if (rest > 0.004) E.push({ date: v.date, desc: `سند قبض ${v.no}${curTxt}، غير مخصص`, debit: 0, credit: rest, cat: 'payment', key: null });
     });
+    S.vouchers.filter(v => v.partyId === tid && v.kind === 'correction').forEach(c => {
+      const o = S.vouchers.find(x => x.id === c.of); if (!o) return;
+      const why = c.note ? '، ' + c.note : '';
+      c.alloc.forEach(a => E.push({ date: c.date, desc: `سند تصحيح ${c.no}: إلغاء سند القبض ${o.no}، ${a.k === 'order' ? 'طلب ' + (O(a.id)?.no || '') : (C(a.id)?.fileNo || '')}${why}`, debit: a.amount, credit: 0, cat: 'payment', key: a.k + ':' + a.id }));
+      const rest = r2(c.usd - sum(c.alloc, a => a.amount));
+      if (rest > 0.004) E.push({ date: c.date, desc: `سند تصحيح ${c.no}: إلغاء سند القبض ${o.no}، غير مخصص${why}`, debit: rest, credit: 0, cat: 'payment', key: null });
+    });
     E.sort((a, b) => a.date.localeCompare(b.date) || (b.debit - a.debit));
     let run = 0; E.forEach(x => { run = r2(run + x.debit - x.credit); x.bal = run; });
     const targets = {}; E.forEach(x => { if (x.key) targets[x.key] = r2((targets[x.key] || 0) + x.debit - x.credit); });
     const goods = r2(sum(E.filter(x => x.cat === 'goods'), x => x.debit)), fees = r2(sum(E.filter(x => x.cat === 'fees'), x => x.debit));
-    const opening = r2(sum(E.filter(x => x.cat === 'opening'), x => x.debit - x.credit)), paid = r2(sum(E.filter(x => x.cat === 'payment'), x => x.credit));
-    const unalloc = r2(sum(E.filter(x => x.cat === 'payment' && !x.key), x => x.credit));
+    const opening = r2(sum(E.filter(x => x.cat === 'opening'), x => x.debit - x.credit)), paid = r2(sum(E.filter(x => x.cat === 'payment'), x => x.credit - x.debit));
+    const unalloc = r2(sum(E.filter(x => x.cat === 'payment' && !x.key), x => x.credit - x.debit));
     return { E, targets, goods, fees, opening, paid, unalloc, total: r2(goods + fees + opening - paid) };
   });
 }
@@ -1121,11 +1129,12 @@ VIEWS.finance = () => {
   const head = `<div class="page-head"><div><h1 class="title">المالية والحوالات</h1><p class="sub">كل حركة مالية تُسجَّل بسند يحفظ عملته وسعر صرفه. والسند المعتمد لا يُحذف، والخطأ يُصحح بسند تصحيح.</p></div><div class="actions">${U.fin === 'vouchers' ? '<button class="btn primary" data-act="modal" data-type="receipt">سند قبض</button><button class="btn" data-act="modal" data-type="payment">سند صرف</button>' : '<button class="btn primary" data-act="modal" data-type="transfer">حوالة جديدة</button>'}</div></div>`;
   if (U.fin === 'vouchers') {
     const list = S.vouchers.slice().sort((a, b) => b.no - a.no);
-    return head + seg + `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>الرقم</th><th>التاريخ</th><th>النوع</th><th>الطرف</th><th class="r">المبلغ</th><th class="r">السعر</th><th class="r">بالدولار</th><th>التخصيص والبيان</th><th>أُدخل من</th></tr></thead><tbody>${list.map(v => {
-      const kind = { receipt: pill('قبض', 'good'), payment: pill('صرف', 'warn'), opening: pill('رصيد افتتاحي', 'info') }[v.kind];
-      const al = v.alloc.map(a => (a.k === 'order' ? 'طلب ' + (O(a.id)?.no || '') : (C(a.id)?.fileNo || '')) + ': ' + n2(a.amount)).join('، ');
+    return head + seg + `<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>الرقم</th><th>التاريخ</th><th>النوع</th><th>الطرف</th><th class="r">المبلغ</th><th class="r">السعر</th><th class="r">بالدولار</th><th>التخصيص والبيان</th><th>أُدخل من</th><th></th></tr></thead><tbody>${list.map(v => {
+      const kind = { receipt: pill('قبض', 'good'), payment: pill('صرف', 'warn'), opening: pill('رصيد افتتاحي', 'info'), correction: pill('تصحيح', 'crit') }[v.kind];
+      const orig = v.kind === 'correction' ? S.vouchers.find(x => x.id === v.of) : null, fix = v.correctedBy ? S.vouchers.find(x => x.id === v.correctedBy) : null;
+      const al = orig ? `إلغاء سند القبض ${orig.no}` : v.alloc.map(a => (a.k === 'order' ? 'طلب ' + (O(a.id)?.no || '') : (C(a.id)?.fileNo || '')) + ': ' + n2(a.amount)).join('، ');
       const rest = v.kind === 'receipt' ? r2(v.usd - sum(v.alloc, a => a.amount)) : 0;
-      return `<tr><td class="mono">${v.no}${pend(v)}</td><td class="num">${fmtDate(v.date)}</td><td>${kind}</td><td>${h(P(v.partyId).name)}</td><td class="r">${amt(v.amount, v.cur)}</td><td class="r">${v.cur === 'USD' ? '<span class="muted">—</span>' : `<span class="num">${n0(v.rate)}</span> <span class="hint">${RATE_TYPES[v.rateType] || ''}</span>`}</td><td class="r">${usd(v.usd)}</td><td style="font-size:12.5px">${h(al)}${rest > 0.004 ? `${al ? '، ' : ''}<span class="hint ok">غير مخصص ${n2(rest)}</span>` : ''}${v.note ? `<div class="hint">${h(v.note)}</div>` : ''}</td><td class="muted">${h(v.by)}</td></tr>`;
+      return `<tr><td class="mono">${v.no}${pend(v)}</td><td class="num">${fmtDate(v.date)}</td><td>${kind}</td><td>${h(P(v.partyId).name)}</td><td class="r">${amt(orig ? -v.amount : v.amount, v.cur)}</td><td class="r">${v.cur === 'USD' ? '<span class="muted">—</span>' : `<span class="num">${n0(v.rate)}</span> <span class="hint">${RATE_TYPES[v.rateType] || ''}</span>`}</td><td class="r">${usd(orig ? -v.usd : v.usd)}</td><td style="font-size:12.5px">${h(al)}${rest > 0.004 && !fix ? `${al ? '، ' : ''}<span class="hint ok">غير مخصص ${n2(rest)}</span>` : ''}${v.note ? `<div class="hint">${h(v.note)}</div>` : ''}${fix ? `<div class="hint err">أُلغي بسند التصحيح ${fix.no}</div>` : ''}</td><td class="muted">${h(v.by)}</td><td>${v.kind === 'receipt' && !fix ? `<button class="btn sm" data-act="modal" data-type="correct" data-id="${v.id}">إلغاء بسند تصحيح</button>` : ''}</td></tr>`;
     }).join('')}</tbody></table></div></div>`;
   }
   const list = S.transfers.slice().sort((a, b) => b.no - a.no);
@@ -1500,7 +1509,8 @@ MODALS.receipt = m => dlg('سند قبض', `<div class="fgrid">
   <label class="fl full">التاجر<select id="rc-t" data-live="trader">${partyOpts(['trader'], m.t || '', 'اختر التاجر')}</select></label>
   ${moneyFields('rc', 'USD', 'official')}
   <label class="fl full">البيان<input id="rc-note" placeholder="مثلاً: دفعة نقدية في مكتب العمارة"></label></div>
-  <div><div class="sec-head"><h3 class="h2" style="margin:0">التخصيص</h3><button class="btn sm" data-act="autoAlloc">توزيع تلقائي على الأقدم</button></div><div id="rc-alloc"></div><div class="sumline" id="rc-sum"></div></div>`, saveBtns('حفظ السند'), true);
+  <div><div class="sec-head"><h3 class="h2" style="margin:0">التخصيص</h3><button class="btn sm" data-act="autoAlloc">توزيع تلقائي على الأقدم</button></div><div id="rc-alloc"></div><div class="sumline" id="rc-sum"></div>
+  <div class="infobox warn" id="rc-warn" hidden style="margin-top:8px"></div><label class="check" id="rc-keep-w" hidden style="margin-top:8px"><input type="checkbox" id="rc-keep"><span id="rc-keep-t"></span></label></div>`, saveBtns('حفظ السند'), true);
 function allocBox() {
   const tid = val('rc-t'), box = $('rc-alloc'); if (!box) return;
   if (!tid) { box.innerHTML = '<p class="hint">اختر التاجر لتظهر مبالغه المفتوحة.</p>'; return; }
@@ -1508,20 +1518,37 @@ function allocBox() {
   S.orders.filter(o => o.traderId === tid).sort((a, b) => a.date.localeCompare(b.date)).forEach(o => { const v = s.targets['order:' + o.id] || 0; if (v > 0.004) rows.push({ k: 'order', id: o.id, label: orderFees(o) ? `بضاعة طلب ${o.no} وأجوره المكتوبة` : `بضاعة طلب ${o.no}`, date: o.date, v }); });
   S.containers.forEach(c => { const v = s.targets['container:' + c.id] || 0; if (v > 0.004) rows.push({ k: 'container', id: c.id, label: `أجور ومصاريف الحاوية ${c.fileNo}`, date: c.created, v }); });
   rows.sort((a, b) => a.date.localeCompare(b.date));
-  const pre = U.modal.order;
-  box.innerHTML = rows.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>المبلغ المفتوح</th><th class="r">المتبقي</th><th>يُخصص</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r.label}</td><td class="r">${usd(r.v)}</td><td><input type="number" min="0" step="0.01" max="${r2(r.v)}" data-alloc="${r.k}|${r.id}" data-max="${r2(r.v)}" style="width:120px" aria-label="تخصيص ${h(r.label)}" ${pre && r.id === pre ? 'data-pre="1"' : ''}></td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">لا توجد مبالغ مفتوحة على هذا التاجر، وسيبقى السند غير مخصص باسمه.</p>';
+  const pre = U.modal.order, credit = s.unalloc; U.rcSig = null;
+  const creditBox = !(credit > 0.004) ? '' : rows.length
+    ? `<div class="infobox" style="margin-bottom:10px">للتاجر ${n2(credit)} $ غير مخصص من سندات قبض سابقة. <button class="btn sm" data-act="useCredit" data-t="${tid}" style="margin-inline-start:8px">خصّصه على المبالغ المفتوحة</button></div>`
+    : `<p class="hint">للتاجر ${n2(credit)} $ غير مخصص من سندات قبض سابقة، ولا توجد مبالغ مفتوحة عليه.</p>`;
+  box.innerHTML = creditBox + (rows.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>المبلغ المفتوح</th><th class="r">المتبقي</th><th>يُخصص</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r.label}</td><td class="r">${usd(r.v)}</td><td><input type="number" min="0" step="0.01" max="${r2(r.v)}" data-alloc="${r.k}|${r.id}" data-max="${r2(r.v)}" style="width:120px" aria-label="تخصيص ${h(r.label)}" ${pre && r.id === pre ? 'data-pre="1"' : ''}></td></tr>`).join('')}</tbody></table></div>` : '<p class="hint">لا توجد مبالغ مفتوحة على هذا التاجر، وسيبقى السند غير مخصص باسمه.</p>');
+}
+/* The receipt allocates itself as its amount is typed (the order or container it was opened from, then
+   the oldest open amounts) until an allocation is changed by hand. */
+function fillAlloc(ins, left) {
+  const list = ins.slice(), pre = list.find(i => i.dataset.pre); if (pre) { list.splice(list.indexOf(pre), 1); list.unshift(pre); }
+  list.forEach(i => { const v = Math.min(+i.dataset.max, r2(Math.max(0, left))); i.value = v > 0 ? v.toFixed(2) : ''; left = r2(left - Math.max(0, v)); });
 }
 LIVE.receipt = (src) => {
   liveMoney('rc');
   if (!src || src === 'trader') allocBox();
-  const m = readMoney('rc'), al = sum([...document.querySelectorAll('[data-alloc]')], i => +i.value || 0);
-  $('rc-sum').innerHTML = m.usd > 0 ? `<span>قيمة السند <b>${n2(m.usd)} $</b></span><span>مخصص <b>${n2(al)} $</b></span>${al > m.usd + 0.004 ? '<span class="hint err">المخصص أكبر من قيمة السند</span>' : `<span>غير مخصص يبقى باسم التاجر <b>${n2(m.usd - al)} $</b></span>`}` : '';
+  const ins = [...document.querySelectorAll('[data-alloc]')], sig = () => ins.map(i => i.value).join('|');
+  if (U.rcSig == null || sig() === U.rcSig) { fillAlloc(ins, readMoney('rc').usd); U.rcSig = sig(); }
+  const m = readMoney('rc'), al = r2(sum(ins, i => +i.value || 0)), rest = r2(m.usd - al);
+  const open = r2(sum(ins, i => Math.max(0, +i.dataset.max - (+i.value || 0))));
+  $('rc-sum').innerHTML = m.usd > 0 ? `<span>قيمة السند <b>${n2(m.usd)} $</b></span><span>مخصص <b>${n2(al)} $</b></span>${al > m.usd + 0.004 ? '<span class="hint err">المخصص أكبر من قيمة السند</span>' : `<span>غير مخصص <b>${n2(rest)} $</b></span>`}${ins.length ? `<span>يبقى على التاجر بعد هذا السند <b>${n2(open)} $</b></span>` : ''}` : '';
+  const needKeep = m.usd > 0 && rest > 0.004 && open > 0.004, w = $('rc-warn');
+  w.hidden = !(m.usd > 0 && rest > 0.004);
+  w.textContent = needKeep
+    ? `سيبقى ${n2(rest)} $ من هذا السند غير مخصص، مع أن على التاجر ${n2(open)} $ في المبالغ المفتوحة أعلاه. خصّصه عليها، أو أكّد أدناه إبقاءه غير مخصص.`
+    : `لا توجد مبالغ مفتوحة تكفي، فيبقى ${n2(rest)} $ غير مخصص، ويُحسب للتاجر (له علينا) حتى يُخصص لطلب أو حاوية لاحقة.`;
+  $('rc-keep-w').hidden = !needKeep; $('rc-keep-t').textContent = `أبقِ ${n2(rest)} $ غير مخصص باسم التاجر`;
 };
 function autoAlloc() {
   let left = readMoney('rc').usd; if (!(left > 0)) return err('اكتب مبلغ السند أولاً');
   const ins = [...document.querySelectorAll('[data-alloc]')];
-  const pre = ins.find(i => i.dataset.pre); if (pre) { ins.splice(ins.indexOf(pre), 1); ins.unshift(pre); }
-  ins.forEach(i => { const v = Math.min(+i.dataset.max, r2(left)); i.value = v > 0 ? v.toFixed(2) : ''; left = r2(left - Math.max(0, v)); });
+  fillAlloc(ins, left); U.rcSig = ins.map(i => i.value).join('|');
   LIVE.receipt('amt');
 }
 SAVE.receipt = () => {
@@ -1530,9 +1557,25 @@ SAVE.receipt = () => {
   const alloc = [...document.querySelectorAll('[data-alloc]')].map(i => ({ i, v: r2(+i.value || 0) })).filter(x => x.v > 0);
   for (const x of alloc) if (x.v > +x.i.dataset.max + 0.004) return err('لا يُخصص لمبلغ أكثر من المتبقي عليه');
   if (sum(alloc, x => x.v) > m.usd + 0.004) return err('مجموع التخصيص أكبر من قيمة السند');
+  const openLeft = r2(sum([...document.querySelectorAll('[data-alloc]')], i => Math.max(0, +i.dataset.max - (+i.value || 0))));
+  if (m.usd - sum(alloc, x => x.v) > 0.004 && openLeft > 0.004 && !$('rc-keep')?.checked) return err('خصّص المبلغ على المبالغ المفتوحة، أو أكّد إبقاء الباقي غير مخصص');
   const v = stamp({ id: uid('v'), no: S.seq.voucher++, kind: 'receipt', date: TODAY, partyId: tid, ...m, alloc: alloc.map(x => { const [k, id] = x.i.dataset.alloc.split('|'); return { k, id, amount: x.v }; }), note: val('rc-note'), containerId: '' });
   S.vouchers.push(v);
   return `حُفظ سند القبض ${v.no}`;
+};
+
+/* correction voucher: cancels a receipt and stays visible next to it */
+MODALS.correct = m => {
+  const v = S.vouchers.find(x => x.id === m.id);
+  return dlg(`تصحيح سند القبض ${v.no}`, `<p style="margin:0">يُلغى سند القبض ${v.no} (${usd(v.usd)} من ${h(P(v.partyId).name)}) بسند تصحيح يبقى ظاهراً مع السند الأصلي في كشف الحساب، ولا يُحذف شيء.</p>
+    <label class="fl full">سبب التصحيح<input id="cr-note" placeholder="مثلاً: سند مكرر"></label>`, saveBtns('حفظ سند التصحيح'));
+};
+SAVE.correct = () => {
+  const v = S.vouchers.find(x => x.id === U.modal.id); if (!v || v.correctedBy) return err('هذا السند مصحَّح من قبل');
+  const note = val('cr-note'); if (!note) return err('اكتب سبب التصحيح');
+  const c = stamp({ id: uid('v'), no: S.seq.voucher++, kind: 'correction', date: TODAY, partyId: v.partyId, of: v.id, amount: v.amount, cur: v.cur, rate: v.rate, rateType: v.rateType, usd: v.usd, alloc: v.alloc.map(a => ({ ...a })), note, containerId: '' });
+  S.vouchers.push(c); v.correctedBy = c.id;
+  return `حُفظ سند التصحيح ${c.no}، وأُلغي أثر سند القبض ${v.no}`;
 };
 
 /* payment */
@@ -1620,6 +1663,24 @@ const ACTS = {
   pickTrader: el => { const p = P(el.dataset.id); $('no-trader').value = p.name; $('no-trader-id').value = p.id; $('no-sugg').innerHTML = ''; $('nt-box').hidden = true; },
   newTraderInline: () => { $('nt-box').hidden = false; $('nt-name2').value = val('no-trader'); $('no-trader-id').value = ''; $('no-sugg').innerHTML = ''; $('nt-city2').focus(); },
   autoAlloc: () => autoAlloc(),
+  useCredit: el => {
+    const tid = el.dataset.t, s = traderSummary(tid), open = [];
+    S.orders.filter(o => o.traderId === tid).forEach(o => { const v = s.targets['order:' + o.id] || 0; if (v > 0.004) open.push({ k: 'order', id: o.id, date: o.date, v }); });
+    S.containers.forEach(c => { const v = s.targets['container:' + c.id] || 0; if (v > 0.004) open.push({ k: 'container', id: c.id, date: c.created, v }); });
+    open.sort((a, b) => a.date.localeCompare(b.date));
+    let used = 0;
+    S.vouchers.filter(v => v.partyId === tid && v.kind === 'receipt' && !v.correctedBy).sort((a, b) => a.date.localeCompare(b.date) || a.no - b.no).forEach(v => {
+      let rest = r2(v.usd - sum(v.alloc, a => a.amount));
+      for (const o of open) {
+        if (rest <= 0.004) break; if (o.v <= 0.004) continue;
+        const a = r2(Math.min(rest, o.v)), ex = v.alloc.find(x => x.k === o.k && x.id === o.id);
+        if (ex) ex.amount = r2(ex.amount + a); else v.alloc.push({ k: o.k, id: o.id, amount: a });
+        o.v = r2(o.v - a); rest = r2(rest - a); used = r2(used + a);
+      }
+    });
+    if (!(used > 0)) return err('لا يوجد مبلغ غير مخصص يمكن تخصيصه');
+    save(); render(); toast(`خُصّص ${n2(used)} $ من المبلغ غير المخصص على المبالغ المفتوحة`);
+  },
   advance: el => {
     const o = O(el.dataset.id), a = r2(num('adv-amt')), left = goodsPay(o).left;
     if (!(a > 0)) return err('اكتب مبلغ دفعة شركة الشحن');
