@@ -338,6 +338,13 @@ input[type="checkbox"],input[type="radio"]{width:auto;height:auto;padding:0;acce
 .sugg button{display:block;width:100%;padding:8px 10px;border:0;background:transparent;text-align:start;cursor:pointer;color:var(--ink)}
 .sugg button:hover{background:var(--surface-2)}
 .sugg .add{color:var(--brand-ink);font-weight:700;border-top:1px solid var(--line)}
+.fsec{display:flex;flex-direction:column;gap:12px;padding-top:14px;border-top:1px solid var(--line)}
+.fsec:first-child{padding-top:0;border-top:0}
+.fsec>h3.h2{margin:0}
+.paysum{flex-direction:row;flex-wrap:wrap;gap:6px 18px;padding:10px 12px;border-radius:10px;background:var(--surface-2);font-size:13px;color:var(--ink);font-weight:500}
+.paysum b{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.paysum .bad{color:var(--crit);font-weight:600}
+.paysum .good,.stmt-sum .good{color:var(--ok);font-weight:600}
 .feebox{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-2)}
 .feegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px 12px;margin-block:6px 4px}
 .feegrid .fee-note{grid-column:span 2}
@@ -633,6 +640,17 @@ const feesOf = o => pricingOf(o) === 'sep' ? Object.fromEntries(Object.entries(o
 const otherOf = o => pricingOf(o) === 'sep' && +o.other > 0 ? r2(+o.other) : 0;
 const orderFees = o => r2(sum(Object.values(feesOf(o)), a => +a) + otherOf(o));
 const orderCbm = o => Math.round(sum(o.lines, l => l.cbm * l.cartons) * 1000) / 1000;
+/* Paying the supplier for the goods. The shipping company's payments for the trader are kept on the
+   order (o.advances; older data has one amount in o.completed). The trader's part is what he paid on
+   the order, as far as the goods value goes after the company's part; anything he pays beyond that
+   repays the company or covers fees. */
+const advancesOf = o => o.advances || (o.completed > 0 ? [{ id: o.id + 'ad0', date: o.date, amount: o.completed, note: '' }] : []);
+const companyPaid = o => r2(sum(advancesOf(o), a => +a.amount || 0));
+const orderReceipts = o => r2(sum(S.vouchers.filter(v => v.kind === 'receipt'), v => sum(v.alloc.filter(a => a.k === 'order' && a.id === o.id), a => a.amount)));
+function goodsPay(o) {
+  const company = companyPaid(o), trader = r2(Math.max(0, Math.min(orderReceipts(o), o.goods - company)));
+  return { trader, company, sum: r2(trader + company), left: r2(Math.max(0, o.goods - trader - company)) };
+}
 function coverOf(o, typeId) {
   if (!o) return '';
   if (pricingOf(o) === 'incl') return (o.includes || []).includes(typeId) ? 'metre' : '';
@@ -904,9 +922,9 @@ function ordersTable() {
   let list = S.orders.slice().sort((a, b) => b.no - a.no);
   if (q) list = list.filter(o => (o.no + ' ' + P(o.traderId).name + ' ' + o.lines.map(l => l.desc).join(' ')).includes(q));
   if (!list.length) return '<p class="empty">لا توجد طلبات تطابق البحث.</p>';
-  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>الطلب</th><th>التاجر</th><th>المواد</th><th>المسار</th><th class="r">قيمة البضاعة</th><th class="r">المتبقي على الطلب</th><th>${q4h()}</th></tr></thead><tbody>${list.map(o => {
-    const rem = r2(traderSummary(o.traderId).targets['order:' + o.id] || 0);
-    return `<tr class="click" data-act="order" data-id="${o.id}"><td class="mono">${o.no}${pend(o)}</td><td>${h(P(o.traderId).name)}</td><td>${h(o.lines.map(l => l.desc).join('، '))}</td><td>${o.route === 'warehouse' ? 'عبر مخزن الصين' : 'مباشرة إلى الميناء'}</td><td class="r">${usd(o.goods)}</td><td class="r">${rem > 0.004 ? usd(rem) : pill('مدفوعة', 'good')}</td><td>${q4(orderStats(o))}</td></tr>`;
+  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>الطلب</th><th>التاجر</th><th>المواد</th><th>المسار</th><th class="r">قيمة البضاعة</th><th class="r">المتبقي لإكمال البضاعة</th><th class="r">المتبقي على التاجر</th><th>${q4h()}</th></tr></thead><tbody>${list.map(o => {
+    const rem = r2(traderSummary(o.traderId).targets['order:' + o.id] || 0), gp = goodsPay(o);
+    return `<tr class="click" data-act="order" data-id="${o.id}"><td class="mono">${o.no}${pend(o)}</td><td>${h(P(o.traderId).name)}</td><td>${h(o.lines.map(l => l.desc).join('، '))}</td><td>${o.route === 'warehouse' ? 'عبر مخزن الصين' : 'مباشرة إلى الميناء'}</td><td class="r">${usd(o.goods)}</td><td class="r">${gp.left > 0.004 ? usd(gp.left) : pill('اكتملت', 'good')}</td><td class="r">${rem > 0.004 ? usd(rem) : pill('مدفوعة', 'good')}</td><td>${q4(orderStats(o))}</td></tr>`;
   }).join('')}</tbody></table></div>`;
 }
 VIEWS.orders = () => `<div class="page-head"><div><h1 class="title">الطلبات</h1><p class="sub">كل عملية تبدأ بطلب التاجر، حتى قبل وجود الحاوية. والكميات الأربع تبيّن أين وصلت البضاعة.</p></div><div class="actions"><button class="btn primary" data-act="modal" data-type="newOrder">طلب جديد</button></div></div>
@@ -1182,17 +1200,23 @@ function liveMoney(prefix) {
 
 /* new order */
 MODALS.newOrder = () => dlg('طلب جديد', `
-  <div class="fgrid">
+  <section class="fsec"><h3 class="h2">التاجر والمورد</h3><div class="fgrid">
     <div class="fl full">التاجر
       <div class="combo"><input id="no-trader" autocomplete="off" placeholder="اكتب اسم التاجر" data-live="trader" aria-describedby="no-trader-hint"><button type="button" class="plus" data-act="newTraderInline" title="تعريف تاجر جديد" aria-label="تعريف تاجر جديد">+</button><div class="sugg" id="no-sugg"></div></div>
       <input type="hidden" id="no-trader-id"><span class="hint" id="no-trader-hint">تظهر الأسماء المقترحة أثناء الكتابة، وعلامة + تعرّف تاجراً جديداً.</span>
       <div class="ntbox" id="nt-box" hidden><div class="fgrid"><label class="fl">اسم التاجر الجديد<input id="nt-name2"></label><label class="fl">المدينة<input id="nt-city2"></label><label class="fl">الهاتف<input id="nt-phone2" inputmode="tel"></label></div></div>
     </div>
-    <label class="fl">المورد<select id="no-supplier">${partyOpts(['supplier'], '', 'اختر المورد')}</select></label>
-    <label class="fl">قيمة البضاعة ($)<input type="number" min="0" step="0.01" id="no-goods"></label>
+    <label class="fl full">المورد<select id="no-supplier">${partyOpts(['supplier'], '', 'اختر المورد')}</select></label>
     <div class="fl full">مسار البضاعة في الصين<div class="radios"><label class="radio"><input type="radio" name="no-route" value="warehouse" checked><span>عبر مخزن الشركة في الصين<small>تُسجَّل رسوم المخزن إن وُجدت</small></span></label><label class="radio"><input type="radio" name="no-route" value="direct"><span>مباشرة من المورد إلى الميناء</span></label></div></div>
-    <label class="fl">سعر المتر المتفق عليه ($)<input type="number" min="0" step="0.01" id="no-metre" value="${S.settings.metre}"><span class="hint" id="no-metre-h">حدّد نوع سعر المتر أدناه.</span></label>
-    <label class="fl">ما أكملته الشركة عن التاجر ($)<input type="number" min="0" step="0.01" id="no-completed" value="0"><span class="hint">ما دفعته الشركة للمورد عبر وكيلها في الصين لأن التاجر لم يكن معه المبلغ كاملاً، ويبقى ديناً على التاجر.</span></label>
+  </div></section>
+  <section class="fsec"><h3 class="h2">قيمة البضاعة والدفع</h3><div class="fgrid">
+    <label class="fl full">قيمة البضاعة الكلية ($)<input type="number" min="0" step="0.01" id="no-goods"></label>
+    <label class="fl full">ما دفعه التاجر ($)<input type="number" min="0" step="0.01" id="no-tpaid" value="0"><span class="hint">يُسجَّل بسند قبض باسم التاجر على هذا الطلب.</span></label>
+    <label class="fl full">ما دفعته شركة الشحن عن التاجر ($)<input type="number" min="0" step="0.01" id="no-completed" value="0"><span class="hint">تدفعه الشركة للمورد عبر وكيلها في الصين لأن التاجر لم يكن معه المبلغ كاملاً، ويبقى ديناً على التاجر. وتُسجَّل دفعات الشركة اللاحقة من بطاقة الطلب.</span></label>
+    <div class="fl full paysum" id="no-paysum" aria-live="polite"></div>
+  </div></section>
+  <section class="fsec"><h3 class="h2">سعر الشحن</h3><div class="fgrid">
+    <label class="fl full">سعر المتر المتفق عليه ($)<input type="number" min="0" step="0.01" id="no-metre" value="${S.settings.metre}"><span class="hint" id="no-metre-h">حدّد نوع سعر المتر أدناه.</span></label>
     <div class="fl full">نوع سعر المتر<div class="radios">
       <label class="radio"><input type="radio" name="no-ptype" value="incl"><span>سعر شامل<small>سعر المتر يشمل الشحن البحري والأجور التي تختارها.</small></span></label>
       <label class="radio"><input type="radio" name="no-ptype" value="sep"><span>الشحن البحري فقط، والأجور منفصلة<small>تكتب مبلغ كل أجر في حقله، ويُجمع الكل مع أجور الشحن في السعر الإجمالي.</small></span></label></div></div>
@@ -1202,8 +1226,8 @@ MODALS.newOrder = () => dlg('طلب جديد', `
         <label class="fl">أجور أخرى<input type="number" min="0" step="0.01" id="no-other" placeholder="—"></label>
         <label class="fl fee-note">بيان الأجور الأخرى<input id="no-other-note" placeholder="مثلاً: فحص مختبري"></label></div>
       <span class="hint">المبالغ للطلب كله ولا تُضرب بالأمتار، فيُكتب الكمرك والضريبة كما تحسبهما الكمارك على نوع المادة وقيمتها. والحقل الفارغ يُحسب فيه على التاجر نصيبه من المصروف الفعلي عند التخليص، واكتب 0 إذا لم يُستوفَ منه شيء.</span></div>
-  </div>
-  <div><div class="sec-head"><h3 class="h2" style="margin:0">الأصناف والكراتين</h3><button class="btn sm" data-act="addLine">إضافة صنف</button></div><p class="hint" style="margin:2px 0 8px">لكل صنف سطر: نوع المادة، وعدد كراتينه، وحجم الكرتونة الواحدة بأبعادها بالسنتيمتر أو بالمتر المكعب، أو حجم كراتين الصنف كلها بالمتر المكعب. والبرنامج يضرب حجم الكرتونة بعددها.</p><div id="no-lines">${lineRow()}</div><div class="sumline" id="no-tot" style="margin-top:8px"></div></div>`, saveBtns('حفظ الطلب'), true);
+  </div></section>
+  <section class="fsec"><div class="sec-head"><h3 class="h2" style="margin:0">الأصناف والكراتين</h3><button class="btn sm" data-act="addLine">إضافة صنف</button></div><p class="hint" style="margin:2px 0 8px">لكل صنف سطر: نوع المادة، وعدد كراتينه، وحجم الكرتونة الواحدة بأبعادها بالسنتيمتر أو بالمتر المكعب، أو حجم كراتين الصنف كلها بالمتر المكعب. والبرنامج يضرب حجم الكرتونة بعددها.</p><div id="no-lines">${lineRow()}</div><div class="sumline" id="no-tot" style="margin-top:8px"></div></section>`, saveBtns('حفظ الطلب'), true);
 function lineRow() {
   return `<div class="lrow" data-row><input class="l-desc" placeholder="الصنف (نوع المادة)، مثلاً: إنارة LED" aria-label="الصنف (نوع المادة)"><input class="l-cartons" type="number" min="1" placeholder="عدد الكراتين" aria-label="عدد الكراتين">
     <select class="l-mode" aria-label="طريقة إدخال الحجم"><option value="dims">أبعاد الكرتونة (سم)</option><option value="per">م³ للكرتونة</option><option value="total">م³ للمجموعة</option></select>
@@ -1227,6 +1251,8 @@ LIVE.newOrder = () => {
     const t = l.cbm * l.cartons; tot += t; cartons += l.cartons;
     l.r.querySelector('.l-out').textContent = l.cbm > 0 && l.cartons > 0 ? `${n4(l.cbm)} × ${l.cartons} = ${n4(t)} م³` : '—';
   });
+  const V = num('no-goods'), paidSum = r2(Math.max(0, num('no-tpaid')) + Math.max(0, num('no-completed'))), left = r2(V - paidSum);
+  $('no-paysum').innerHTML = `<span>مجموع ما دفعه التاجر وشركة الشحن <b>${n2(paidSum)} $</b></span>${!(V > 0) ? '' : left < -0.004 ? `<span class="bad">المجموع أكبر من قيمة البضاعة بـ ${n2(-left)} $</span>` : left > 0.004 ? `<span>المتبقي لإكمال قيمة البضاعة <b>${n2(left)} $</b></span>` : '<span class="good">اكتملت قيمة البضاعة</span>'}`;
   const metre = num('no-metre'), pt = document.querySelector('input[name="no-ptype"]:checked')?.value || '';
   $('no-inc-w').hidden = pt !== 'incl'; $('no-fee-w').hidden = pt !== 'sep';
   $('no-metre-h').textContent = pt === 'incl' ? 'يشمل الشحن البحري والأجور التي تختارها أدناه.' : pt === 'sep' ? 'للشحن البحري فقط، والأجور الأخرى تُكتب أدناه.' : 'حدّد نوع سعر المتر أدناه.';
@@ -1250,6 +1276,9 @@ SAVE.newOrder = () => {
   if (!lines.length) return err('أضف صنفاً واحداً على الأقل');
   for (const l of lines) { if (!l.desc) return err('اكتب وصف كل صنف'); if (!(l.cartons > 0)) return err(`عدد الكراتين مطلوب للصنف «${l.desc}»`); if (!(l.cbm > 0)) return err(`حجم الصنف «${l.desc}» مطلوب`); }
   const goods = num('no-goods'); if (!(goods > 0)) return err('اكتب قيمة البضاعة');
+  const tpaid = r2(num('no-tpaid')), cpaid = r2(num('no-completed'));
+  if (tpaid < 0 || cpaid < 0) return err('المبالغ المدفوعة لا تكون سالبة');
+  if (tpaid + cpaid > goods + 0.004) return err('مجموع ما دفعه التاجر وشركة الشحن أكبر من قيمة البضاعة');
   const pt = document.querySelector('input[name="no-ptype"]:checked')?.value;
   if (!(num('no-metre') > 0)) return err('اكتب سعر المتر المتفق عليه');
   if (!pt) return err('اختر نوع سعر المتر: سعر شامل، أو الشحن البحري فقط والأجور منفصلة');
@@ -1267,20 +1296,29 @@ SAVE.newOrder = () => {
   if (isNew) { const p = { id: uid('t'), type: 'trader', name: val('nt-name2'), city: val('nt-city2'), phone: val('nt-phone2') }; S.parties.push(p); tid = p.id; }
   const id = uid('o');
   const o = stamp({ id, no: S.seq.order++, traderId: tid, supplierId: val('no-supplier'), date: TODAY, route: document.querySelector('input[name="no-route"]:checked').value,
-    goods, metre: num('no-metre'), pricing: pt, includes, fees, other, otherNote, completed: num('no-completed'),
+    goods, metre: num('no-metre'), pricing: pt, includes, fees, other, otherNote,
+    advances: cpaid > 0 ? [{ id: uid('ad'), date: TODAY, amount: cpaid, note: 'عند تعريف الطلب' }] : [],
     lines: lines.map((l, i) => ({ id: id + 'l' + i, desc: l.desc, cartons: l.cartons, mode: l.mode, L: l.L, W: l.W, H: l.H, total: l.mode === 'total' ? l.v : undefined, cbm: l.cbm, received: 0 })) });
   S.orders.push(o);
-  return `حُفظ الطلب ${o.no}`;
+  if (tpaid > 0) S.vouchers.push(stamp({ id: uid('v'), no: S.seq.voucher++, kind: 'receipt', date: TODAY, partyId: tid, amount: tpaid, cur: 'USD', rate: 1, rateType: '', usd: tpaid,
+    alloc: [{ k: 'order', id: o.id, amount: tpaid }], note: 'ما دفعه التاجر عند تعريف الطلب', containerId: '' }));
+  return `حُفظ الطلب ${o.no}${tpaid > 0 ? '، وسند قبض بما دفعه التاجر' : ''}`;
 };
 
 /* order detail */
 MODALS.order = m => {
-  const o = O(m.id), ts = traderSummary(o.traderId), rem = r2(ts.targets['order:' + o.id] || 0), fees = orderFees(o), paid = r2(o.goods + fees - rem);
+  const o = O(m.id), ts = traderSummary(o.traderId), rem = r2(ts.targets['order:' + o.id] || 0), fees = orderFees(o), paid = r2(o.goods + fees - rem), gp = goodsPay(o), adv = advancesOf(o);
   const where = S.loads.filter(x => x.orderId === o.id).reduce((acc, x) => { acc[x.containerId] = (acc[x.containerId] || 0) + x.cartons; return acc; }, {});
   const body = `<dl class="kv"><dt>التاجر</dt><dd><b>${h(P(o.traderId).name)}</b></dd><dt>المورد</dt><dd>${h(P(o.supplierId).name)}</dd><dt>المسار</dt><dd>${o.route === 'warehouse' ? 'عبر مخزن الشركة في الصين' : 'مباشرة من المورد إلى الميناء'}</dd><dt>تاريخ الطلب</dt><dd class="num">${fmtDate(o.date)}</dd>
     <dt>سعر المتر</dt><dd>${usd(o.metre)} · ${pricingOf(o) === 'incl' ? 'سعر شامل يشمل ' + (o.includes || []).map(t => h(T(t).name)).join('، ') : 'للشحن البحري فقط، والأجور منفصلة'}</dd></dl>
+    <h3 class="h2" style="margin:0">دفع قيمة البضاعة للمورد</h3>
+    <div class="stmt-sum"><div><div class="k-label">قيمة البضاعة الكلية</div><b>${usd(o.goods)}</b></div><div><div class="k-label">ما دفعه التاجر</div><b>${usd(gp.trader)}</b></div><div><div class="k-label">ما دفعته شركة الشحن</div><b>${usd(gp.company)}</b></div><div><div class="k-label">مجموع ما دفعه التاجر وشركة الشحن</div><b>${usd(gp.sum)}</b></div><div><div class="k-label">المتبقي لإكمال قيمة البضاعة</div><b>${gp.left > 0.004 ? usd(gp.left) : '<span class="good">اكتملت</span>'}</b></div></div>
+    ${adv.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>دفعات شركة الشحن عن التاجر</th><th>التاريخ</th><th class="r">المبلغ</th></tr></thead><tbody>${adv.map(a => `<tr><td>${h(a.note || '—')}</td><td class="num">${fmtDate(a.date)}</td><td class="r">${usd(+a.amount)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    ${gp.left > 0.004 ? `<div><div class="inline" style="margin-top:0"><input type="number" min="0" step="0.01" id="adv-amt" placeholder="المبلغ ($)" aria-label="ما تدفعه شركة الشحن الآن"><input id="adv-note" placeholder="البيان، مثلاً: اتفاق مع التاجر على إكمال المبلغ" aria-label="بيان الدفعة" style="flex:3 1 220px"><button class="btn sm" data-act="advance" data-id="${o.id}">تسجيل دفعة من شركة الشحن</button></div><p class="hint" style="margin:6px 0 0">تكمل بها شركة الشحن قيمة البضاعة عن التاجر، ويبقى المبلغ ديناً عليه حتى يتحاسبا. وما يدفعه التاجر نفسه يُسجَّل بسند قبض.</p></div>` : ''}
+    <h3 class="h2" style="margin:0">سعر الشحن</h3>
     ${priceTable(o)}
-    <div class="stmt-sum"><div><div class="k-label">قيمة البضاعة</div><b>${usd(o.goods)}</b></div>${fees ? `<div><div class="k-label">الأجور المكتوبة في الطلب</div><b>${usd(fees)}</b></div>` : ''}<div><div class="k-label">دفع التاجر</div><b>${usd(paid)}</b></div>${o.completed ? `<div><div class="k-label">أكملت الشركة عبر الوكيل</div><b>${usd(o.completed)}</b></div>` : ''}<div><div class="k-label">يبقى على التاجر</div><b>${usd(rem)}</b></div></div>
+    <h3 class="h2" style="margin:0">حساب التاجر على هذا الطلب</h3>
+    <div class="stmt-sum"><div><div class="k-label">قيمة البضاعة</div><b>${usd(o.goods)}</b></div>${fees ? `<div><div class="k-label">الأجور المكتوبة في الطلب</div><b>${usd(fees)}</b></div>` : ''}<div><div class="k-label">دفع التاجر</div><b>${usd(paid)}</b></div><div><div class="k-label">يبقى على التاجر</div><b>${usd(rem)}</b></div></div>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>الصنف</th><th class="r">م³ للكرتونة</th><th>${q4h()}</th><th class="r">${o.route === 'warehouse' ? 'في مخزن الصين' : 'لم يُحمّل'}</th><th></th></tr></thead><tbody>${o.lines.map(l => {
       const s = lineStats(l);
       return `<tr><td>${h(l.desc)}${l.mode === 'dims' ? `<div class="hint num">${l.L}×${l.W}×${l.H} سم</div>` : ''}</td><td class="r num">${n4(l.cbm)}</td><td>${q4(s)}</td><td class="r num">${s.received - s.loaded}</td><td>${l.received < l.cartons ? `<div class="inline" style="margin:0"><input type="number" min="1" max="${l.cartons - l.received}" id="rc-${l.id}" placeholder="مستلم الآن" style="width:110px" aria-label="الكمية المستلمة الآن"><button class="btn sm" data-act="receive" data-id="${o.id}" data-line="${l.id}">تسجيل الاستلام</button></div>` : pill('استُلم كاملاً', 'good')}</td></tr>`;
@@ -1570,6 +1608,13 @@ const ACTS = {
   pickTrader: el => { const p = P(el.dataset.id); $('no-trader').value = p.name; $('no-trader-id').value = p.id; $('no-sugg').innerHTML = ''; $('nt-box').hidden = true; },
   newTraderInline: () => { $('nt-box').hidden = false; $('nt-name2').value = val('no-trader'); $('no-trader-id').value = ''; $('no-sugg').innerHTML = ''; $('nt-city2').focus(); },
   autoAlloc: () => autoAlloc(),
+  advance: el => {
+    const o = O(el.dataset.id), a = r2(num('adv-amt')), left = goodsPay(o).left;
+    if (!(a > 0)) return err('اكتب مبلغ دفعة شركة الشحن');
+    if (a > left + 0.004) return err(`المبلغ أكبر من المتبقي لإكمال قيمة البضاعة (${n2(left)} $)`);
+    o.advances = advancesOf(o).concat([{ id: uid('ad'), date: TODAY, amount: a, note: val('adv-note') }]); delete o.completed;
+    save(); render(); toast(`سُجّلت دفعة من شركة الشحن: ${n2(a)} $ على الطلب ${o.no}`);
+  },
   receive: el => { const o = O(el.dataset.id), l = o.lines.find(z => z.id === el.dataset.line), n = Math.floor(num('rc-' + l.id)); if (!(n > 0)) return err('اكتب الكمية المستلمة'); if (n > l.cartons - l.received) return err('الكمية أكبر من المتبقي في الطلب'); l.received += n; save(); render(); toast(`سُجّل استلام ${n} كرتوناً من «${l.desc}»`); },
   approveCosts: el => { if (!isMgr()) return; const c = C(el.dataset.id); c.costsApproved = true; event(c.id, 'اعتمد المدير التكاليف'); commit(`اعتُمدت تكاليف ${c.fileNo}`); },
   refund: el => { const c = C(el.dataset.id); c.depositRefunded = true; event(c.id, 'استُرد تأمين الحاوية'); commit('سُجّل استرداد التأمين'); },
