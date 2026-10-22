@@ -1044,7 +1044,7 @@ function distText(e) {
   if (sh.kind === 'deposit') return '<span class="dist">لا يُوزع على التجار، ويُسترد بعد إعادة الحاوية</span>';
   if (sh.kind === 'fine') return `<span class="dist">على ${h(P(e.responsibleId).name)} كاملة</span>`;
   if (sh.kind === 'error') return `<span class="dist hint err">${h(sh.msg || 'تعذّر التوزيع')}</span>`;
-  return `<span class="dist">${sh.rows.map(r => `<span class="${r.onCompany ? 'co' : ''}">${h(P(r.traderId).name)} ${n2(r.amount)}${r.onCompany ? ' (على الشركة)' : ''}</span>`).join('')}</span>`;
+  return `<span class="dist">${sh.rows.map(r => `<span class="${r.onCompany ? 'co' : ''}">${h(P(r.traderId).name)} ${n2(r.amount)} $${r.onCompany ? ' (على الشركة)' : ''}</span>`).join('')}</span>`;
 }
 function expTable(exps) {
   return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>المصروف</th><th class="r">المبلغ</th><th class="r">بالدولار</th><th>الجهة</th><th>التوزيع</th></tr></thead><tbody>${exps.map(e => {
@@ -1466,7 +1466,19 @@ LIVE.expense = () => {
   if (sh.kind === 'deposit') { prev.innerHTML = '<div class="infobox">تأمين الحاوية لا يُوزع على التجار، ويُتابع حتى يُسترد بعد إعادة الحاوية.</div>'; return; }
   if (sh.kind === 'fine') { prev.innerHTML = e.responsibleId ? `<div class="infobox">تُحمَّل الغرامة كاملة (${n2(e.usd)} $) على ${h(P(e.responsibleId).name)}، ولا تُوزع على بقية التجار.</div>` : '<p class="hint">اختر الجهة المتسببة بالتأخير.</p>'; return; }
   if (sh.kind === 'error') { prev.innerHTML = `<p class="hint err">${h(sh.msg)}</p>`; return; }
-  prev.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>التاجر</th><th>الطلب</th><th class="r">الحصة</th><th>على من</th></tr></thead><tbody>${sh.rows.map(r => `<tr><td>${h(P(r.traderId).name)}</td><td class="mono">${r.no}</td><td class="r">${usd(r.amount)}</td><td>${r.cover === 'metre' ? '<span class="hint ok">على الشركة، لأن سعر متره يشمل هذا المصروف</span>' : r.cover === 'order' ? '<span class="hint ok">على الشركة، لأن التاجر يدفع لهذا الأجر مبلغاً متفقاً عليه في طلبه</span>' : 'على التاجر'}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2">المجموع</td><td class="r">${usd(sum(sh.rows, r => r.amount))}</td><td></td></tr></tfoot></table></div><p class="hint">مجموع الحصص يساوي المصروف تماماً، وفروق التقريب تذهب للحصص ذات الكسور الأكبر.</p>`;
+  const ecur = CURS[e.cur] ? e.cur : 'USD', k = 10 ** CURS[ecur].dec, direct = sh.basis === 'direct'; // files: this container's files, read above
+  const w = direct ? [1] : files.map(f => sh.basis === 'value' ? f.value : f.cbm), tot = sum(w);
+  const units = direct ? [Math.round(e.amount * k)] : (split(Math.round(e.amount * k), w) || w.map(() => 0));
+  const lead = direct ? 'المبلغ كله على الملف المختار.'
+    : sh.basis === 'value' ? `حصة كل تاجر = المبلغ × قيمة بضاعته ÷ مجموع قيمة البضائع في الحاوية (${n2(tot)} $).`
+    : `حصة كل تاجر = المبلغ × أمتاره ÷ مجموع الأمتار المحمّلة في الحاوية (${n4(tot)} م³).`;
+  const curNote = ecur === 'USD' ? '' : `<p class="hint" style="margin:0 0 6px">المبلغ ${amt(e.amount, ecur)} يعادل ${n2(e.usd)} $ بسعر ${n0(e.rate)}. والحصة تظهر بالعملتين، وتُسجَّل على حسابات التجار بالدولار.</p>`;
+  const inCur = (x, u) => ecur === 'USD' ? usd(u) : `${amt(x, ecur)}<div class="hint">${n2(u)} $</div>`;
+  prev.innerHTML = `<p class="hint" style="margin:0 0 6px">${lead}</p>${curNote}<div class="tbl-wrap"><table class="tbl"><thead><tr><th>التاجر</th><th>الطلب</th><th class="r">${direct ? 'الأساس' : sh.basis === 'value' ? 'قيمة بضاعته' : 'أمتاره'}</th><th class="r">النسبة</th><th class="r">الحصة</th><th>على من</th></tr></thead><tbody>${sh.rows.map((r, i) => {
+    const f = direct ? files.find(x => x.orderId === r.orderId) : files[i], pct = direct ? 100 : (tot > 0 ? w[i] / tot * 100 : 0);
+    const base = direct ? '—' : sh.basis === 'value' ? usd(f.value) : `<span class="num">${n4(f.cbm)}</span> م³`;
+    return `<tr><td>${h(P(r.traderId).name)}</td><td class="mono">${r.no}</td><td class="r">${base}</td><td class="r num">${n2(pct)}%</td><td class="r">${inCur(units[i] / k, r.amount)}</td><td>${r.cover === 'metre' ? '<span class="hint ok">على الشركة، لأن سعر متره يشمل هذا المصروف</span>' : r.cover === 'order' ? '<span class="hint ok">على الشركة، لأن التاجر يدفع لهذا الأجر مبلغاً متفقاً عليه في طلبه</span>' : 'على التاجر'}</td></tr>`;
+  }).join('')}</tbody><tfoot><tr><td colspan="3">المجموع</td><td class="r num">100.00%</td><td class="r">${inCur(e.amount, sum(sh.rows, r => r.amount))}</td><td></td></tr></tfoot></table></div><p class="hint">مجموع الحصص يساوي المصروف تماماً، وفروق التقريب تذهب للحصص ذات الكسور الأكبر.</p>`;
 };
 SAVE.expense = () => {
   const e = expDraft(), c = C(e.containerId), t = T(e.typeId);
